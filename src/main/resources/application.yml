@@ -1,0 +1,30 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: RepoMentor
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/repomentor?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 1204135889
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  data:
+    redis:
+      host: 192.168.40.128
+      port: 6379
+      database: 1
+      password: test123456
+
+repomentor:
+  repo:
+    base-path: D:/repomentor/repos
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
