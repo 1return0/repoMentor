@@ -4,11 +4,15 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.lsr.repomentor.dto.RepoImportDTO;
 import com.lsr.repomentor.entity.RepoInfo;
 import com.lsr.repomentor.mapper.RepoInfoMapper;
+import com.lsr.repomentor.service.GitHubCloneService;
 import com.lsr.repomentor.service.RepoInfoService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 @Service
+@RequiredArgsConstructor
 public class RepoInfoServiceImpl extends ServiceImpl<RepoInfoMapper, RepoInfo> implements RepoInfoService {
+    private final GitHubCloneService gitHubCloneService;
     @Override
     public Long importRepo(RepoImportDTO dto) {
         if (dto == null || !StringUtils.hasText(dto.getRepoUrl())) {
@@ -38,6 +42,20 @@ public class RepoInfoServiceImpl extends ServiceImpl<RepoInfoMapper, RepoInfo> i
                 .build();
 
         this.save(repoInfo);
+        try {
+            repoInfo.setStatus(1);
+            this.updateById(repoInfo);
+
+            String localPath = gitHubCloneService.cloneRepo(repoUrl, branchName, repoInfo.getId());
+
+            repoInfo.setLocalPath(localPath);
+            repoInfo.setStatus(2);
+            this.updateById(repoInfo);
+        } catch (Exception e) {
+            repoInfo.setStatus(3);
+            this.updateById(repoInfo);
+            throw new RuntimeException(e.getMessage());
+        }
         return repoInfo.getId();
     }
     private String parseRepoName(String repoUrl){
