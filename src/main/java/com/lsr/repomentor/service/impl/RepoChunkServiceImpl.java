@@ -2,6 +2,7 @@ package com.lsr.repomentor.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.lsr.repomentor.dto.ChunkSearchDTO;
 import com.lsr.repomentor.entity.RepoChunk;
 import com.lsr.repomentor.entity.RepoFile;
 import com.lsr.repomentor.entity.RepoInfo;
@@ -10,6 +11,7 @@ import com.lsr.repomentor.mapper.RepoFileMapper;
 import com.lsr.repomentor.mapper.RepoInfoMapper;
 import com.lsr.repomentor.service.RepoChunkService;
 import com.lsr.repomentor.service.RepoInfoService;
+import com.lsr.repomentor.vo.ChunkSearchVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,7 +20,8 @@ import org.springframework.util.StringUtils;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -67,6 +70,106 @@ public class RepoChunkServiceImpl implements RepoChunkService {
             repoFileMapper.update(updateData, updateWrapper);
         }
     }
+
+    @Override
+    public List<ChunkSearchVO> searchChunks(ChunkSearchDTO dto) {
+        if (dto == null || dto.getRepoId() == null) {
+            throw new RuntimeException("仓库ID不能为空");
+        }
+        if (!StringUtils.hasText(dto.getKeyword())) {
+            throw new RuntimeException("关键词不能为空");
+        }
+
+        Long repoId = dto.getRepoId();
+        String keyword = dto.getKeyword().trim();
+
+        int topK = dto.getTopK() == null ? 10 : dto.getTopK();
+        topK = Math.max(1, Math.min(topK, 50));
+
+        RepoInfo repoInfo = repoInfoMapper.selectById(repoId);
+        if (repoInfo == null) {
+            throw new RuntimeException("仓库不存在");
+        }
+
+        /*
+         * 先查文件表：
+         * 支持 filePath、fileName、fileType 匹配。
+         * 比如 keyword = Controller，可以命中文件名 RestController.java。
+         */
+        LambdaQueryWrapper<RepoFile> fileWrapper = new LambdaQueryWrapper<>();
+        fileWrapper.eq(RepoFile::getRepoId, repoId)
+                .and(wrapper -> wrapper
+                        .like(RepoFile::getFilePath, keyword)
+                        .or()
+                        .like(RepoFile::getFileName, keyword)
+                        .or()
+                        .like(RepoFile::getFileType, keyword)
+                );
+
+        List<RepoFile> matchedFiles = repoFileMapper.selectList(fileWrapper);
+
+        List<Long> matchedFileIds = matchedFiles.stream()
+                .map(RepoFile::getId)
+                .toList();
+
+        /*
+         * 再查 chunk 表：
+         * 1. content LIKE keyword
+         * 2. 或者 fileId 在匹配到的文件列表中
+         */
+        LambdaQueryWrapper<RepoChunk> chunkWrapper = new LambdaQueryWrapper<>();
+        chunkWrapper.eq(RepoChunk::getRepoId, repoId)
+                .and(wrapper -> {
+                    wrapper.like(RepoChunk::getContent, keyword);
+
+                    if (!matchedFileIds.isEmpty()) {
+                        wrapper.or().in(RepoChunk::getFileId, matchedFileIds);
+                    }
+                })
+                .orderByAsc(RepoChunk::getFileId)
+                .orderByAsc(RepoChunk::getChunkIndex)
+                .last("LIMIT " + topK);
+
+        List<RepoChunk> chunkList = repoChunkMapper.selectList(chunkWrapper);
+
+        if (chunkList.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        /*
+         * 避免 N+1 查询：
+         * 之前你是每个 chunk 查一次 repo_file。
+         * 现在改成一次性批量查。
+         */
+        Set<Long> fileIds = chunkList.stream()
+                .map(RepoChunk::getFileId)
+                .collect(Collectors.toSet());
+
+        Map<Long, RepoFile> fileMap = repoFileMapper.selectBatchIds(fileIds)
+                .stream()
+                .collect(Collectors.toMap(RepoFile::getId, file -> file));
+
+        return chunkList.stream()
+                .map(chunk -> {
+                    RepoFile repoFile = fileMap.get(chunk.getFileId());
+
+                    return ChunkSearchVO.builder()
+                            .chunkId(chunk.getId())
+                            .repoId(chunk.getRepoId())
+                            .repoName(repoInfo.getRepoName())
+                            .fileId(chunk.getFileId())
+                            .filePath(repoFile == null ? null : repoFile.getFilePath())
+                            .fileName(repoFile == null ? null : repoFile.getFileName())
+                            .fileType(repoFile == null ? null : repoFile.getFileType())
+                            .chunkIndex(chunk.getChunkIndex())
+                            .startLine(chunk.getStartLine())
+                            .endLine(chunk.getEndLine())
+                            .content(chunk.getContent())
+                            .build();
+                })
+                .toList();
+    }
+
     private void buildFileChunks(String localPath, RepoFile repoFile) {
         try {
             File file = new File(localPath, repoFile.getFilePath());
