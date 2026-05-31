@@ -4,7 +4,9 @@ import com.lsr.repomentor.common.Result;
 import com.lsr.repomentor.dto.RepoImportDTO;
 import com.lsr.repomentor.entity.RepoInfo;
 import com.lsr.repomentor.service.RepoInfoService;
+import com.lsr.repomentor.vo.RepoInfoVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,7 +17,7 @@ public class RepoController {
     private final RepoInfoService repoInfoService;
 
     @PostMapping("/import")
-    public Result<Long> importRepo(@RequestBody RepoImportDTO dto) {
+    public Result<RepoInfoVO> importRepo(@RequestBody RepoImportDTO dto) {
         try{
             return Result.ok(repoInfoService.importRepo(dto));
         } catch (Exception e){
