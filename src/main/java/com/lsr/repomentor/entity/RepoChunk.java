@@ -3,36 +3,27 @@ package com.lsr.repomentor.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Data
-@TableName("repo_info")
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RepoInfo {
+@TableName("repo_chunk")
+public class RepoChunk {
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String repoName;
-    private Long userId;
-    private String repoUrl;
-
-    private String branchName;
-
-    private String localPath;
-
-    private String description;
-
-    private Integer status;
-
+    private Long repoId;
+    private Long fileId;
+    private Integer chunkIndex;
+    private String content;
+    private Integer startLine;
+    private Integer endLine;
+    private Integer embeddingStatus;
     private LocalDateTime createTime;
-
     private LocalDateTime updateTime;
 }

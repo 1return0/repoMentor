@@ -6,6 +6,7 @@ import com.lsr.repomentor.dto.RepoImportDTO;
 import com.lsr.repomentor.entity.RepoInfo;
 import com.lsr.repomentor.mapper.RepoInfoMapper;
 import com.lsr.repomentor.service.GitHubCloneService;
+import com.lsr.repomentor.service.RepoChunkService;
 import com.lsr.repomentor.service.RepoFileService;
 import com.lsr.repomentor.service.RepoInfoService;
 import com.lsr.repomentor.vo.RepoInfoVO;
@@ -17,6 +18,7 @@ import org.springframework.util.StringUtils;
 public class RepoInfoServiceImpl extends ServiceImpl<RepoInfoMapper, RepoInfo> implements RepoInfoService {
     private final GitHubCloneService gitHubCloneService;
     private final RepoFileService repoFileService;
+    private final RepoChunkService repoChunkService;
     @Override
     public RepoInfoVO importRepo(RepoImportDTO dto) {
         if (dto == null || !StringUtils.hasText(dto.getRepoUrl())) {
@@ -54,17 +56,18 @@ public class RepoInfoServiceImpl extends ServiceImpl<RepoInfoMapper, RepoInfo> i
         try {
             LambdaUpdateWrapper<RepoInfo> processingWrapper = new LambdaUpdateWrapper<>();
             processingWrapper.eq(RepoInfo::getId, repoInfo.getId());
-
+            localPath = gitHubCloneService.cloneRepo(repoUrl, branchName, repoInfo.getId());
             RepoInfo processingData = RepoInfo.builder()
+                    .localPath(localPath)
                     .status(1)
                     .build();
 
             this.update(processingData, processingWrapper);
 
-            localPath = gitHubCloneService.cloneRepo(repoUrl, branchName, repoInfo.getId());
+
 
             repoFileService.scanRepoFiles(repoInfo.getId(), localPath);
-
+            repoChunkService.buildChunks(repoInfo.getId());
             LambdaUpdateWrapper<RepoInfo> successWrapper = new LambdaUpdateWrapper<>();
             successWrapper.eq(RepoInfo::getId, repoInfo.getId());
 
@@ -76,6 +79,8 @@ public class RepoInfoServiceImpl extends ServiceImpl<RepoInfoMapper, RepoInfo> i
             this.update(successData, successWrapper);
 
         } catch (Exception e) {
+            e.printStackTrace();
+
             LambdaUpdateWrapper<RepoInfo> failWrapper = new LambdaUpdateWrapper<>();
             failWrapper.eq(RepoInfo::getId, repoInfo.getId());
 
@@ -85,7 +90,7 @@ public class RepoInfoServiceImpl extends ServiceImpl<RepoInfoMapper, RepoInfo> i
 
             this.update(failData, failWrapper);
 
-            throw new RuntimeException(e.getMessage());
+            throw new RuntimeException("导入仓库失败：" + e.getClass().getName() + "，" + e.getMessage(), e);
         }
         return RepoInfoVO.builder()
                 .repoId(repoInfo.getId())
