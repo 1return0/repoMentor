@@ -10,6 +10,7 @@ import com.lsr.repomentor.service.RepoChunkService;
 import com.lsr.repomentor.service.RepoFileService;
 import com.lsr.repomentor.service.RepoInfoService;
 import com.lsr.repomentor.vo.RepoInfoVO;
+import com.lsr.repomentor.vo.RepoStatusVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -105,5 +106,38 @@ public class RepoInfoServiceImpl extends ServiceImpl<RepoInfoMapper, RepoInfo> i
         }
         int index = url.lastIndexOf("/");
         return index>=0?url.substring(index+1):url;
+    }
+    @Override
+    public RepoStatusVO getRepoStatus(Long repoId) {
+        if (repoId == null) {
+            throw new RuntimeException("仓库ID不能为空");
+        }
+
+        RepoInfo repoInfo = this.getById(repoId);
+        if (repoInfo == null) {
+            throw new RuntimeException("仓库不存在");
+        }
+
+        return RepoStatusVO.builder()
+                .repoId(repoInfo.getId())
+                .repoName(repoInfo.getRepoName())
+                .status(repoInfo.getStatus())
+                .statusText(getStatusText(repoInfo.getStatus()))
+                .localPath(repoInfo.getLocalPath())
+                .build();
+    }
+
+    private String getStatusText(Integer status) {
+        if (status == null) {
+            return "未知状态";
+        }
+
+        return switch (status) {
+            case 0 -> "待导入";
+            case 1 -> "已克隆，处理中";
+            case 2 -> "导入完成";
+            case 3 -> "导入失败";
+            default -> "未知状态";
+        };
     }
 }

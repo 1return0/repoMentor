@@ -18,10 +18,6 @@ public class RepoChunkController {
 
     @PostMapping("/search")
     public Result<List<ChunkSearchVO>> searchChunks(@RequestBody ChunkSearchDTO dto) {
-        try {
-            return Result.ok(repoChunkService.searchChunks(dto));
-        } catch (Exception e) {
-            return Result.fail("检索代码片段失败：" + e.getMessage());
-        }
+        return Result.ok(repoChunkService.searchChunks(dto));
     }
 }

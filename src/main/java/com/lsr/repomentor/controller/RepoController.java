@@ -5,8 +5,8 @@ import com.lsr.repomentor.dto.RepoImportDTO;
 import com.lsr.repomentor.entity.RepoInfo;
 import com.lsr.repomentor.service.RepoInfoService;
 import com.lsr.repomentor.vo.RepoInfoVO;
+import com.lsr.repomentor.vo.RepoStatusVO;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -18,21 +18,16 @@ public class RepoController {
 
     @PostMapping("/import")
     public Result<RepoInfoVO> importRepo(@RequestBody RepoImportDTO dto) {
-        try{
-            return Result.ok(repoInfoService.importRepo(dto));
-        } catch (Exception e){
-            return Result.fail("添加仓库失败：" + e.getMessage());
-        }
-
+        return Result.ok(repoInfoService.importRepo(dto));
     }
 
     @GetMapping("/{repoId}")
     public Result<RepoInfo> getRepo(@PathVariable Long repoId) {
-        try{
-            return Result.ok(repoInfoService.getById(repoId));
-        }catch (Exception e){
-            return Result.fail("查询失败：" + e.getMessage());
-        }
+        return Result.ok(repoInfoService.getById(repoId));
+    }
 
+    @GetMapping("/{repoId}/status")
+    public Result<RepoStatusVO> getRepoStatus(@PathVariable Long repoId) {
+        return Result.ok(repoInfoService.getRepoStatus(repoId));
     }
 }
