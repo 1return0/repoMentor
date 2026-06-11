@@ -9,27 +9,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ChunkSearchVO {
-
-    private Long chunkId;
-
-    private Long repoId;
-
-    private String repoName;
-
-    private Long fileId;
-
+public class RepoFileVO {
     private String filePath;
-
     private String fileName;
-
     private String fileType;
-
-    private Integer chunkIndex;
-
-    private Integer startLine;
-
-    private Integer endLine;
-
-    private String content;
+    private Long fileSize;
 }

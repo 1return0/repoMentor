@@ -8,4 +8,8 @@ import java.util.List;
 public interface RepoChunkService {
     void buildChunks(Long repoId);
     List<ChunkSearchVO> searchChunks(ChunkSearchDTO dto);
+
+    List<ChunkSearchVO> listChunksByFilePath(Long repoId, String filePath);
+
+    List<ChunkSearchVO> listChunksByRepoId(Long repoId);
 }

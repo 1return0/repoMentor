@@ -2,6 +2,7 @@ package com.lsr.repomentor.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.lsr.repomentor.common.Result;
 import com.lsr.repomentor.dto.ChunkSearchDTO;
 import com.lsr.repomentor.entity.RepoChunk;
 import com.lsr.repomentor.entity.RepoFile;
@@ -21,6 +22,7 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -168,6 +170,128 @@ public class RepoChunkServiceImpl implements RepoChunkService {
                             .build();
                 })
                 .toList();
+    }
+
+    @Override
+    public List<ChunkSearchVO> listChunksByFilePath(Long repoId, String filePath) {
+        if (repoId==null) throw new RuntimeException("仓库ID不能为空");
+        RepoInfo repoInfo = repoInfoMapper.selectById(repoId);
+        if (repoInfo == null) {
+            throw new RuntimeException("仓库不存在");
+        }
+        LambdaQueryWrapper<RepoFile> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(RepoFile::getFilePath,filePath)
+                .eq(RepoFile::getRepoId,repoId);
+        RepoFile repoFile = repoFileMapper.selectOne(wrapper);
+        if(repoFile==null){
+            throw new RuntimeException("文件路径不存在");
+        }
+
+        Long id = repoFile.getId();
+        LambdaQueryWrapper<RepoChunk> chunkWrapper = new LambdaQueryWrapper<>();
+        chunkWrapper.eq(RepoChunk::getFileId,id)
+                .orderByAsc(RepoChunk::getChunkIndex);
+        List<RepoChunk> repoChunks = repoChunkMapper.selectList(chunkWrapper);
+        return repoChunks.stream().map(repoChunk -> {
+            return ChunkSearchVO.builder()
+                    .repoId(repoInfo.getId())
+                    .chunkId(repoChunk.getId())
+                    .repoName(repoInfo.getRepoName())
+                    .fileId(repoFile.getId())
+                    .filePath(repoFile.getFilePath())
+                    .fileType(repoFile.getFileType())
+                    .fileName(repoFile.getFileName())
+                    .chunkIndex(repoChunk.getChunkIndex())
+                    .startLine(repoChunk.getStartLine())
+                    .endLine(repoChunk.getEndLine())
+                    .content(repoChunk.getContent())
+                    .build();
+        }).toList();
+    }
+
+    @Override
+    public List<ChunkSearchVO> listChunksByRepoId(Long repoId) {
+        if(repoId==null) throw new RuntimeException("repoId is empty");
+        RepoInfo repoInfo = repoInfoMapper.selectOne(new LambdaQueryWrapper<RepoInfo>()
+                .eq(RepoInfo::getId, repoId));
+        if(repoInfo==null) throw new RuntimeException("repo is not exist");
+
+        LambdaQueryWrapper<RepoChunk> chunkWrapper = new LambdaQueryWrapper<>();
+        chunkWrapper.eq(RepoChunk::getRepoId,repoId)
+                .orderByAsc(RepoChunk::getFileId)
+                .orderByAsc(RepoChunk::getChunkIndex);
+        List<RepoChunk> repoChunks = repoChunkMapper.selectList(chunkWrapper);
+
+        if (repoChunks == null || repoChunks.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Set<Long> fileIds = repoChunks.stream()
+                .map(RepoChunk::getFileId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (fileIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<RepoFile> repoFiles = repoFileMapper.selectBatchIds(fileIds);
+
+        Map<Long, RepoFile> fileMap = repoFiles.stream()
+                .collect(Collectors.toMap(
+                        RepoFile::getId,
+                        Function.identity()
+                ));
+
+        return repoChunks.stream()
+                .map(repoChunk -> {
+                    RepoFile repoFile = fileMap.get(repoChunk.getFileId());
+                    if (repoFile == null) {
+                        return null;
+                    }
+
+                    return ChunkSearchVO.builder()
+                            .repoId(repoInfo.getId())
+                            .repoName(repoInfo.getRepoName())
+                            .chunkId(repoChunk.getId())
+                            .fileId(repoFile.getId())
+                            .filePath(repoFile.getFilePath())
+                            .fileType(repoFile.getFileType())
+                            .fileName(repoFile.getFileName())
+                            .chunkIndex(repoChunk.getChunkIndex())
+                            .startLine(repoChunk.getStartLine())
+                            .endLine(repoChunk.getEndLine())
+                            .content(repoChunk.getContent())
+                            .build();
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+//        Map<Long, List<RepoChunk>> collect = repoChunks.stream().collect(Collectors.groupingBy(RepoChunk::getFileId));
+//
+//        List<ChunkSearchVO> res = new ArrayList<>();
+//        for(Map.Entry<Long,List<RepoChunk>> entry:collect.entrySet()){
+//            Long fileId = entry.getKey();
+//            List<RepoChunk> value = entry.getValue();
+//            RepoFile repoFile = repoFileMapper.selectById(fileId);
+//            if (repoFile == null) {
+//                continue;
+//            }
+//            for(RepoChunk repoChunk:value){
+//                res.add(ChunkSearchVO.builder()
+//                        .repoId(repoInfo.getId())
+//                        .chunkId(repoChunk.getId())
+//                        .repoName(repoInfo.getRepoName())
+//                        .fileId(repoFile.getId())
+//                        .filePath(repoFile.getFilePath())
+//                        .fileType(repoFile.getFileType())
+//                        .fileName(repoFile.getFileName())
+//                        .chunkIndex(repoChunk.getChunkIndex())
+//                        .startLine(repoChunk.getStartLine())
+//                        .endLine(repoChunk.getEndLine())
+//                        .content(repoChunk.getContent())
+//                        .build());
+//            }
+//        }
+//        return res;
+
     }
 
     private void buildFileChunks(String localPath, RepoFile repoFile) {

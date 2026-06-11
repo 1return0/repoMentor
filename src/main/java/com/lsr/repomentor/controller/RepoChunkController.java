@@ -20,4 +20,15 @@ public class RepoChunkController {
     public Result<List<ChunkSearchVO>> searchChunks(@RequestBody ChunkSearchDTO dto) {
         return Result.ok(repoChunkService.searchChunks(dto));
     }
+    @GetMapping("/file")
+    public Result<List<ChunkSearchVO>> listChunksByFilePath(
+            @RequestParam Long repoId,
+            @RequestParam String filePath
+    ) {
+        return Result.ok(repoChunkService.listChunksByFilePath(repoId, filePath));
+    }
+    @GetMapping("/list")
+    public Result<List<ChunkSearchVO>> listChunks(@RequestParam Long repoId){
+        return Result.ok(repoChunkService.listChunksByRepoId(repoId));
+    }
 }

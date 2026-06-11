@@ -5,11 +5,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.lsr.repomentor.entity.RepoFile;
 import com.lsr.repomentor.mapper.RepoFileMapper;
 import com.lsr.repomentor.service.RepoFileService;
+import com.lsr.repomentor.vo.RepoFileVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.io.File;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +35,23 @@ public class RepoFileServiceImpl implements RepoFileService {
         repoFileMapper.delete(deleteWrapper);
         scanDirectory(repoId, root, root);
     }
+
+    @Override
+    public List<RepoFileVO> listFilesByRepoId(Long repoId) {
+        if(repoId==null){
+            throw new RuntimeException("仓库ID不能为空");
+        }
+        LambdaQueryWrapper<RepoFile> wrapper = new LambdaQueryWrapper<>();
+        wrapper.select(RepoFile::getFilePath,RepoFile::getFileName,RepoFile::getFileType,RepoFile::getFileSize)
+                .eq(RepoFile::getRepoId,repoId);
+        List<RepoFile> repoFiles = repoFileMapper.selectList(wrapper);
+        return repoFiles.stream().map(repoFile -> {
+            RepoFileVO target = new RepoFileVO();
+            BeanUtils.copyProperties(repoFile, target);
+            return target;
+        }).toList();
+    }
+
     private void scanDirectory(Long repoId, File root, File current){
         File[] files = current.listFiles();
         if (files == null) {
